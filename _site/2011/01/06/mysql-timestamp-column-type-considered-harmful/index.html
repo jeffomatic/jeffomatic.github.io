@@ -1,0 +1,69 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="/assets/style/site.css">
+    <link rel="stylesheet" href="/assets/style/highlights.css">
+    <title></title>
+  </head>
+  <body>
+    <div id="bodywrap">
+      <div id="site-header">
+        <h1><a href="/">HOYVIN GLAVIN!</a></h1>
+        <div id="site-subtitle">On technical minutiae, by <a href="http://jeff.blamblamblam.net">Jeff Lee</a></div>
+      </div>
+
+      <div id="page-content">
+
+<div class="post">
+
+  <div class="post-header">
+
+    <div class="post-date">JANUARY 6, 2011</div>
+    <h2><a href="/2011/01/06/mysql-timestamp-column-type-considered-harmful/">MySQL timestamp column type considered harmful</a></h2>
+
+  </div>
+
+  <div class="post-content">
+  <p><a href="https://www.flickr.com/photos/telstar/433029904" title="Time Selector by Todd Lappin, on Flickr"><img src="https://farm1.staticflickr.com/174/433029904_27dd44a95a.jpg" width="500" height="381" alt="Time Selector" /></a></p>
+
+<p>MySQL has a weird auto-updating field type called <code>TIMESTAMP</code>, which can be automatically populated or updated with the current time when you insert or update a row. It’s probably not 100% kosher practice to have a system changing your data without your explicit approval, and yet one could imagine this being useful for logging purposes, or for simplifying your insertion queries.</p>
+
+<p>Unfortunately, this auto-updating functionality operates under very awkward and seemingly pointless constraints. The details are laid out in the <a href="http://dev.mysql.com/doc/refman/5.0/en/timestamp.html">MySQL 5.0 reference manual</a>, but the upshot is like this:</p>
+
+<ul>
+  <li>Regardless of how many <code>TIMESTAMP</code> fields your table contains, only one of those fields may be automatically populated or updated with the current time.</li>
+  <li>The first <code>TIMESTAMP</code> field will have the auto-populating, auto-updating functionality enabled <em>by default</em>, and the only way to disable it is to force a default value on the field.</li>
+</ul>
+
+<p>In other words, you have very little flexibility in terms of which fields can use this feature, and you could have automatic changes to your data that are not obvious in your schema unless you are well-versed in the idiosyncracies of MySQL’s time types.</p>
+
+<p>This behavior has evolved only slightly over the past decade, and in such a way as to complicate and exacerbate the problem rather than fix it. With MySQL 4.1, you gained the ability to apply the auto-update feature to a <code>TIMESTAMP</code> field other than the first, but the process of doing so involves setting a default value on the first <code>TIMESTAMP</code>, a pointless and potentially damaging restriction.</p>
+
+<p>Moreover, you are still forced to contain all automatic behavior to a single field. This is fine in the case of automatic updates, since any auto-updating timestamp beyond the first would be redundant. But it also applies to auto-populating, which means you cannot have a field that automatically populates itself with the time of insertion (a creation timestamp) alongside a <code>TIMESTAMP</code> field that automatically updates itself when the row is updated (an update timestamp).</p>
+
+<p>I’m sure the longevity of this “feature” is due to backwards-compatibility reasons, with so many extant schemas in the wild relying on it, but it really ought to be deprecated and highlighted in the documentation with red 24-point Impact and &lt;blink&gt; tags.</p>
+
+<p>For keeping time data, I use the <code>DATETIME</code> type almost exclusively in my schemas. It obviates the issue by providing no automatic behavior whatsoever. If I use <code>TIMESTAMP</code> at all, it only occurs once in a table, and it is always used to track when a row was updated. I even mark it with the verbosely redundant attributes <code>DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP</code>, which might be pedantic or paranoid or both, but at least one can tell how the field will behave when glancing at the schema.</p>
+
+  </div>
+
+</div>
+
+    </div> <!-- #page-content -->
+
+    <div id="footer">
+      <div id="footer-left">
+        <ul>
+          <li><a href="/">Hoyvin Glavin!</a></li>
+          <li><a href="/feed.xml">RSS</a></li>
+        </ul>
+      </div>
+      <div id="footer-right">
+        <a href="http://creativecommons.org/licenses/by-nc-nd/4.0/">CC BY-NC-ND</a>, except externally linked-images.
+      </div>
+    </div>
+
+    </div> <!-- #bodywrap -->
+  </body>
+</html>

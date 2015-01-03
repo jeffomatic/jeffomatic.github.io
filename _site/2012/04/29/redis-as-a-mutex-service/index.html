@@ -1,0 +1,197 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="/assets/style/site.css">
+    <link rel="stylesheet" href="/assets/style/highlights.css">
+    <title></title>
+  </head>
+  <body>
+    <div id="bodywrap">
+      <div id="site-header">
+        <h1><a href="/">HOYVIN GLAVIN!</a></h1>
+        <div id="site-subtitle">On technical minutiae, by <a href="http://jeff.blamblamblam.net">Jeff Lee</a></div>
+      </div>
+
+      <div id="page-content">
+
+<div class="post">
+
+  <div class="post-header">
+
+    <div class="post-date">APRIL 29, 2012</div>
+    <h2><a href="/2012/04/29/redis-as-a-mutex-service/">Redis as a mutex service</a></h2>
+
+  </div>
+
+  <div class="post-content">
+  <p><a href="https://www.flickr.com/photos/xserve/368758286" title="Lock by Lok Leung, on Flickr"><img src="https://farm1.staticflickr.com/115/368758286_e4dcb5ae53.jpg" width="500" height="334" alt="Lock" /></a></p>
+
+<h3 id="tldr">TL;DR</h3>
+
+<p>Because Redis has atomic mutators that return useful information on what got modified, you can use it to provide <a href="http://en.wikipedia.org/wiki/Test-and-set">test-and-set</a>, the essential primitive operation for mutual exclusion. This means you can synchronize two or more independent processes, even if they are running on different machines, as long as they can both talk to the same Redis server.</p>
+
+<h3 id="wtf">WTF</h3>
+
+<p>I strongly suspect that the following is an insane, hacky workaround for a problem that most likely has a more robust and formal solution. But since I did not discover any such solution after ten minutes of looking, this is what I did.</p>
+
+<h3 id="the-problem-domain">The problem domain</h3>
+
+<p>Suppose you have an application with a rather complex process model. Suppose it has a couple of processes running in independent execution contexts, let’s say two web requests that may or may not be running on the same server. Also suppose that both of these processes are likely to attempt the exact same Expensive Operation, let’s say retrieving a resource from a REST API off in a distant corner of the internet.</p>
+
+<p>Now suppose you would like to cache the result of your Expensive Operation. If any process were to discover that the Expensive Operation had not yet been cached, you’d certainly prefer that only one process attempt to execute it. In other words, you’d like your processes to:</p>
+
+<ul>
+  <li>Look into the cache</li>
+  <li>If nothing’s in the cache, reserve the right to perform the Expensive Operation via some locking mechanism</li>
+  <li>Once the lock is acquired, perform the Expensive Operation and store the result in the cache</li>
+  <li>Relinquish the right to perform the Expensive Operation</li>
+  <li>Now: where exactly does “some locking mechanism” come from? For threads running in the same process, you get this by giving each thread a handle to the same mutex. For processes running on the same file system, you might achieve this through <a href="http://en.wikipedia.org/wiki/File_locking">file locking</a>.</li>
+</ul>
+
+<p>But let us further suppose that your processes are running on Heroku or some other kind of virtualized host, and thus don’t have reliable, persistent access to a common file system. In this case, we’d need some network-accessible resource that our processes can use as a common repository of locks.</p>
+
+<p><a href="https://www.flickr.com/photos/psychic_sometimes/3851533870" title="Commodore VIC 20 by ju4n, on Flickr"><img src="https://farm3.staticflickr.com/2583/3851533870_c121e2f6fb.jpg" width="500" height="375" alt="Commodore VIC 20" /></a></p>
+
+<h3 id="test-and-set">test-and-set</h3>
+
+<p>In theory, it doesn’t really matter what our lock-providing resource actually is, as long as it can be repurposed to provide atomic <a href="http://en.wikipedia.org/wiki/Test-and-set">test-and-set</a> operations that are namespaced along on arbitrary string handles.</p>
+
+<p>In other words, if our handle is <code>foobar</code>, our lock provider should be able to receive commands along the lines of “set the variable <code>foobar</code> to 1 if and only if <code>foobar</code> isn’t already 1, and return the value of <code>foobar</code>”, or perhaps “insert the string <code>foobar</code> into a list, but only if it’s not already in there, and also tell me whether or not it was already in there to begin with.” What’s more is that this type of command, verbose and chunky as it is, needs to happen atomically, i.e., it cannot be interrupted even if other similar commands are received during its execution.</p>
+
+<p>For the classical operating system, this is reducible to some blackbox operation provided by the CPU. When we can’t assume the presence of a unique CPU, we’ll need some other unique resource that our processes can query.</p>
+
+<p><a href="https://www.flickr.com/photos/tbuser/5577325006" title="Database Diagram FAIL by Tony Buser, on Flickr"><img src="https://farm6.staticflickr.com/5026/5577325006_373a3267b0.jpg" width="500" height="316" alt="Database Diagram FAIL" /></a></p>
+
+<h3 id="the-guts">The guts</h3>
+
+<p>Mostly because it was immediately available, I decided to use <a href="http://redis.io/">Redis</a> as my lock provider.</p>
+
+<p>For those unfamiliar, Redis is a piece of server software that provides a fast, network-accessible key/value store. One of Redis’s nice features is that it can store complex data structures like associative arrays and sets. Another nice feature is that it retains its dataset entirely in memory. This means that external requests won’t directly trigger disk operations, and the resulting lack of I/O blocking means that these requests can be served efficiently by a single thread.</p>
+
+<p>What all of this niceness buys you, in turn, is <em>atomic set insertions</em>. In other words, you can add to an array stored in Redis and make sure that the element you’re adding 1) only exists once in the array (a property of all set operations), and 2) happens without getting interrupted by other requests (a property of single-threaded processes).</p>
+
+<p>With this kind of firepower, all you’d need in order to emulate test-and-set is to know whether your set insertion actually added anything new to the set. And this is in fact the exact behavior of <a href="http://redis.io/commands/sadd"><code>sadd</code></a>, Redis’s command for set insertion. <code>sadd</code> takes two arguments: the name of the set you’re adding to, and one or more elements you want to insert into the set, and it returns the difference of 1) the size of the set after the insert and 2) the size of the set before the insert. Since one or more of the elements you tried to insert may already have been in the set, <code>sadd</code>’s return value isn’t always the same as the number of elements you were trying to insert.</p>
+
+<p>Thus, our recipe for locking in Redis:</p>
+
+<ul>
+  <li>Insert a lock handle into our set of locks: <code>sadd set_of_all_named_locks, lock_handle</code></li>
+  <li>If the return value is 0, sleep the current process a little, and re-attempt the above.</li>
+  <li>If the return value is 1, then our current process has acquired the lock for <code>lock_handle</code>. Once we no longer need the lock, we just have to remove <code>lock_handle</code> from the set of locks using <a href="http://redis.io/commands/srem"><code>srem</code></a>.</li>
+</ul>
+
+<p>Here’s an example. If you don’t know Ruby, hopefully the comments can provide hints as to what is going on:</p>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="c1"># CAVEAT EMPTOR: This is excerpted code that I pulled out of context,</span>
+<span class="c1"># re-arranged, renamed the variables of, and otherwise dicked around with</span>
+<span class="c1"># a lot without having put it back into a Ruby interpreter, so it&#39;s</span>
+<span class="c1"># possible that there&#39;s some gnarly typo or bug in here. In short, don&#39;t</span>
+<span class="c1"># cut-and-paste this code.</span>
+
+<span class="k">class</span> <span class="nc">AlreadyLockedException</span> <span class="o">&lt;</span> <span class="no">Exception</span><span class="p">;</span> <span class="k">end</span>
+
+<span class="k">def</span> <span class="nf">redis_spinlock</span><span class="p">(</span><span class="n">redis</span><span class="p">,</span> <span class="n">lock_handle</span><span class="p">,</span> <span class="n">opts</span> <span class="o">=</span> <span class="p">{},</span> <span class="o">&amp;</span><span class="n">critical_section</span><span class="p">)</span>
+  <span class="n">lock_set</span> <span class="o">=</span> <span class="n">opts</span><span class="o">[</span><span class="ss">:lock_set</span><span class="o">]</span> <span class="o">||</span> <span class="s1">&#39;named_locks&#39;</span>
+  <span class="n">sleep_time</span> <span class="o">=</span> <span class="n">opts</span><span class="o">[</span><span class="ss">:sleep</span><span class="o">]</span> <span class="o">||</span> <span class="mi">0</span><span class="o">.</span><span class="mi">1</span>
+  <span class="n">spins</span> <span class="o">=</span> <span class="mi">0</span>
+
+  <span class="k">begin</span>
+    <span class="c1"># Attempt to acquire the lock by adding our lock handle to the set of</span>
+    <span class="c1"># locks. If the number of elements added to the set isn&#39;t 1, then</span>
+    <span class="c1"># another process has already acquired the lock.</span>
+    <span class="c1">#</span>
+    <span class="c1"># Syntax subtlety: in somewhat obsequious fashion, the Ruby Redis</span>
+    <span class="c1"># client returns bool(true) rather than int(1) if the element was</span>
+    <span class="c1"># successfully inserted and was not passed as a single-element</span>
+    <span class="c1"># array.</span>
+    <span class="n">added</span> <span class="o">=</span> <span class="n">redis</span><span class="o">.</span><span class="n">sadd</span> <span class="n">lock_set</span><span class="p">,</span> <span class="n">lock_handle</span>
+    <span class="k">raise</span> <span class="no">AlreadyLockedException</span> <span class="k">unless</span> <span class="n">added</span> <span class="o">===</span> <span class="mi">1</span> <span class="o">||</span> <span class="n">added</span> <span class="o">===</span> <span class="kp">true</span>
+
+    <span class="k">begin</span>
+      <span class="c1"># Here, we&#39;ll perform the operation that originally required the</span>
+      <span class="c1"># lock. We&#39;ll pass the number of times we had to spin on the lock</span>
+      <span class="c1"># to the received block of code. In most cases, you&#39;ll probably</span>
+      <span class="c1"># only care whether the spin count was zero or non-zero, i.e.,</span>
+      <span class="c1"># whether you actually had to compete with another process for the</span>
+      <span class="c1"># lock.</span>
+      <span class="n">critical_section</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">spins</span><span class="p">)</span>
+    <span class="k">ensure</span>
+      <span class="c1"># Unlock, even if we run into errors</span>
+      <span class="n">redis</span><span class="o">.</span><span class="n">srem</span> <span class="n">lock_set</span><span class="p">,</span> <span class="n">lock_handle</span>
+    <span class="k">end</span>
+  <span class="k">rescue</span> <span class="no">AlreadyLockedException</span>
+    <span class="n">spins</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="nb">sleep</span><span class="p">(</span><span class="n">sleep_time</span><span class="p">)</span> <span class="k">if</span> <span class="n">sleep_time</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="k">retry</span>
+  <span class="k">end</span>
+<span class="k">end</span></code></pre></div>
+
+<p>You might implement the above caching scheme as follows:</p>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="c1"># In our example, &quot;cache&quot; is some resource accessible by all of our</span>
+<span class="c1"># processes and provides a run-time interface similar to Ruby&#39;s Hash</span>
+<span class="c1"># class.</span>
+<span class="k">def</span> <span class="nf">cache_lookup</span><span class="p">(</span><span class="n">redis</span><span class="p">,</span> <span class="n">resource_handle</span><span class="p">,</span> <span class="n">cache</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">run_on_cache_miss</span><span class="p">)</span>
+  <span class="k">begin</span>
+    <span class="n">cache</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">resource_handle</span><span class="p">)</span>
+  <span class="k">rescue</span> <span class="no">KeyError</span>
+    <span class="n">redis_spinlock</span><span class="p">(</span><span class="n">redis</span><span class="p">,</span> <span class="n">resource_handle</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">spin_count</span><span class="o">|</span>
+      <span class="k">if</span> <span class="n">spin_count</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="c1"># We had to wait before acquiring the lock, which means something</span>
+        <span class="c1"># probably is in the cache now. We should check the cache again.</span>
+        <span class="k">begin</span>
+          <span class="k">return</span> <span class="n">cache</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">resource_handle</span><span class="p">)</span>
+        <span class="k">rescue</span> <span class="no">KeyError</span>
+          <span class="c1"># do nothing</span>
+        <span class="k">end</span>
+
+      <span class="n">cache</span><span class="o">[</span><span class="n">resource_handle</span><span class="o">]</span> <span class="o">=</span> <span class="n">run_on_cache_miss</span><span class="o">.</span><span class="n">call</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+<span class="k">end</span></code></pre></div>
+
+<p>An alternative method that might be a smidge faster, which I didn’t think of until just now<br />
+Actually, every operation in Redis is atomic, so we could use increments and decrements (<a href="http://redis.io/commands/incr"><code>incr</code></a> and <a href="http://redis.io/commands/decr"><code>decr</code></a>) to provide a more classical-looking test-and-set:</p>
+
+<ul>
+  <li>Increment the variable corresponding to our lock handle: <code>incr lock_handle</code></li>
+  <li>If the return value of incr is 1, then we’ve acquired the lock. Perform the operation.<br />
+Regardless of the return value of <code>incr</code>, decrement the value corresponding to our lock handle: <code>decr lock_handle</code></li>
+  <li>If the return value of <code>incr</code> was 0, we should try incrementing again.</li>
+</ul>
+
+<h3 id="regrets">Regrets</h3>
+
+<p>It occurs to me that in a world where the file system is routinely repurposed to provide cross-process locking, it’s not so far fetched to use Redis as a lock system for processes that can only communicate with one another via TCP/IP. Still, it feels a little as if I’ve brought a shotgun to a knife fight. It would be great if there was a network-enabled lock server that responded to named lock requests in a similar fashion, only purpose-built and with a lighter interface. It sure seems like it would be a handy thing to have from time to time. In fact, I’d be kind of surprised if someone hadn’t already come up with something like this, in like 1982 or something.</p>
+
+<h3 id="addenda-201253">Addenda (2012.5.3)</h3>
+
+<ul>
+  <li>The term that I should have searched for in the first place is either “distributed mutex” or “distributed synchronization”.</li>
+  <li>I was off by at least a few years. Greybeard academia has been contending with this issue since before 1978. cf. <a href="http://en.wikipedia.org/wiki/Lamport%27s_Distributed_Mutual_Exclusion_Algorithm">Lamport</a> (1978-ish) and <a href="http://en.wikipedia.org/wiki/Ricart%E2%80%93Agrawala_algorithm">Ricart-Agrawala</a> (1981).</li>
+  <li>Helpful commenters have pointed me to <a href="http://zookeeper.apache.org/">Apache ZooKeeper</a>.</li>
+  <li>Naturally, I was not nearly the first person to think of using Redis in this manner; the first was probably someone on the Redis team itself, since they seem to have implemented the <a href="http://redis.io/commands/setnx"><code>setnx</code></a> instruction for exactly this purpose. And at least a <a href="https://github.com/0ctave/node-mutex">few</a> <a href="https://github.com/tanin47/ruby_redis_lock">libraries</a> <a href="https://github.com/dv/redis-semaphore">exist</a> to take advantage of this.</li>
+</ul>
+
+  </div>
+
+</div>
+
+    </div> <!-- #page-content -->
+
+    <div id="footer">
+      <div id="footer-left">
+        <ul>
+          <li><a href="/">Hoyvin Glavin!</a></li>
+          <li><a href="/feed.xml">RSS</a></li>
+        </ul>
+      </div>
+      <div id="footer-right">
+        <a href="http://creativecommons.org/licenses/by-nc-nd/4.0/">CC BY-NC-ND</a>, except externally linked-images.
+      </div>
+    </div>
+
+    </div> <!-- #bodywrap -->
+  </body>
+</html>

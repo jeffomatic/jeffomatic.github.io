@@ -1,0 +1,11 @@
+name: Hoyvin Glavin!
+description: On technical minutiae, by Jeff Lee
+url: http://hoyvinglavin.com
+
+permalink: pretty
+
+gems:
+  - jekyll-redirect-from
+
+kramdown:
+  input: GFM

@@ -1,0 +1,394 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="/assets/style/site.css">
+    <link rel="stylesheet" href="/assets/style/highlights.css">
+    <title></title>
+  </head>
+  <body>
+    <div id="bodywrap">
+      <div id="site-header">
+        <h1><a href="/">HOYVIN GLAVIN!</a></h1>
+        <div id="site-subtitle">On technical minutiae, by <a href="http://jeff.blamblamblam.net">Jeff Lee</a></div>
+      </div>
+
+      <div id="page-content">
+
+<div class="post">
+
+  <div class="post-header">
+
+    <div class="post-date">AUGUST 6, 2012</div>
+    <h2><a href="/2012/08/06/jl_signal/">A C++ signal/slots library, mostly from the ground up</a></h2>
+
+  </div>
+
+  <div class="post-content">
+  <p><a href="https://www.flickr.com/photos/garrycalderwood/6815567124" title="&#x27;Post Modern Times&#x27; by Garry Calderwood, on Flickr"><img src="https://farm8.staticflickr.com/7052/6815567124_4df7667a98.jpg" width="500" height="500" alt="&#x27;Post Modern Times&#x27;" /></a></p>
+
+<p>Having spent the better part of the last year monkey-patching, mixing-in, and duck-typing my way through vast brambled acres of Ruby code, I at last threw up my hands and decided it was time for a retreat to the warm and fuzzy land of type-safe languages. The result was <a href="https://github.com/jeffomatic/jl_signal">jl_signal</a>, a C++ <a href="http://en.wikipedia.org/wiki/Signals_and_slots">signals/slots</a> implementation based on a system I used for a game project a while back. Source code and API documentation are <a href="https://github.com/jeffomatic/jl_signal">available on GitHub</a>.</p>
+
+<p>This system lets you create a list of functions at runtime and invoke the entire list with a single function call. This is useful for writing GUIs and other event-driven systems where generic components can trigger all kinds of side-effects. The API has minimal syntax burdens and is easy to use, with certain caveats. It is also fast, and doesn’t allocate to the heap.</p>
+
+<p>Here’s what it looks like:</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="c1">// Declare and instantiate a signal for functions that take a</span>
+<span class="c1">// single char arg.</span>
+<span class="n">JL_SIGNAL</span><span class="p">(</span> <span class="kt">char</span> <span class="p">)</span> <span class="n">oKeyPressSignal</span><span class="p">;</span>
+
+<span class="c1">// Two objects of unrelated type.</span>
+<span class="n">Piano</span> <span class="n">oPiano</span><span class="p">;</span> <span class="c1">// plays notes</span>
+<span class="n">Transcriber</span> <span class="n">oTranscriber</span><span class="p">;</span> <span class="c1">// generates text logs</span>
+
+<span class="c1">// Lets assume the following instance method declarations:</span>
+<span class="c1">//</span>
+<span class="c1">// void Piano::PlayNote( char nKey );</span>
+<span class="c1">// void Transcriber::LogInput( char c );</span>
+<span class="c1">//</span>
+<span class="c1">// Now let&#39;s connect these objects to oKeyPressSignal:</span>
+<span class="n">oKeyPressSignal</span><span class="p">.</span><span class="n">connect</span><span class="p">(</span> <span class="o">&amp;</span><span class="n">oPiano</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">Piano</span><span class="o">::</span><span class="n">PlayNote</span> <span class="p">);</span>
+<span class="n">oKeyPressSignal</span><span class="p">.</span><span class="n">connect</span><span class="p">(</span> <span class="o">&amp;</span><span class="n">oTranscriber</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">Transcriber</span><span class="o">::</span><span class="n">LogInput</span> <span class="p">);</span>
+
+<span class="k">for</span> <span class="p">(;;)</span>
+<span class="p">{</span>
+    <span class="c1">// Gather user input.</span>
+    <span class="kt">char</span> <span class="n">nKey</span> <span class="o">=</span> <span class="n">getchar</span><span class="p">();</span>
+
+    <span class="c1">// Terminate if the user presses ENTER.</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">nKey</span> <span class="o">==</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">break</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Now let&#39;s emit the signal with the user&#39;s input. This is the</span>
+    <span class="c1">// equivalent of making the following function calls:</span>
+    <span class="c1">//</span>
+    <span class="c1">//     oPiano.PlayNote( nKey );</span>
+    <span class="c1">//     oTranscriber.LogInput( nKey );</span>
+    <span class="n">oKeyPressSignal</span><span class="p">.</span><span class="n">Emit</span><span class="p">(</span> <span class="n">nKey</span> <span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Below are some remarks on motivation and implementation.</p>
+
+<h3 id="signalsslots-and-the-observer-pattern">Signals/slots and the observer pattern</h3>
+
+<p>The purpose of signals/slots, as with all subspecies of the <a href="http://en.wikipedia.org/wiki/Observer_pattern">observer pattern</a>, is to allow you to attach arbitrary side-effects to a given piece of application logic. Another way to say that is that it allows you to isolate (or <em>decouple</em>, for those of you playing a programming blog drinking game) the code that implements your application logic from the code that implements said logic’s side-effects.</p>
+
+<p>For example, when you’re implementing a clickable button, you shouldn’t be concerning yourself with what happens when the button is clicked–you really only want your button code to concern itself with how to draw the button, and how to respond to input from the mouse or keyboard. Outside the button, we may have any number of <em>observers</em> that are interested in button clicks, perhaps a sound manager that plays sound effects, or a window handler that closes the application. It would be nice to have a way to connect any of these observers to specific button instances while keeping the button implementation as generic as possible.</p>
+
+<p>With that example in mind, a signals/slots system should produce code that is roughly analogous to the following English sentences: “Buttons in my program emit a click signal. On menu X, I want to connect button Y’s click signal to the nuclear weapons manger’s <code>LaunchEverything()</code> function.”</p>
+
+<p><a href="https://www.flickr.com/photos/stevendepolo/3517227604" title="Launch Button 2 3 4 5 6 7 8-- SMASH Rocket Club 5-9-09 3 by Steven Depolo, on Flickr"><img src="https://farm4.staticflickr.com/3556/3517227604_5b1b74fcfc.jpg" width="500" height="334" alt="Launch Button 2 3 4 5 6 7 8-- SMASH Rocket Club 5-9-09 3" /></a></p>
+
+<p>Now, your typical C++ implementation of the observer pattern will use some kind of event <em>object</em> that gets passed from event source to event observer. Each observer class needs to overload a virtual handler method that receives event objects from sources, and runs them through some kind of dispatch table, most often consisting of a big <code>switch</code> statement.</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">class</span> <span class="nc">ExampleObserver</span> <span class="o">:</span> <span class="k">public</span> <span class="n">EventObserver</span>
+<span class="p">{</span>
+    <span class="p">...</span>
+    <span class="k">virtual</span> <span class="kt">void</span> <span class="n">HandleEvent</span><span class="p">(</span> <span class="n">Event</span> <span class="n">e</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">switch</span> <span class="p">(</span> <span class="n">e</span><span class="p">.</span><span class="n">id</span> <span class="p">)</span>
+        <span class="p">{</span>
+        <span class="k">case</span> <span class="nl">eAppEvent_Click</span><span class="p">:</span>
+            <span class="p">...</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="k">case</span> <span class="nl">eAppEvent_WindowClose</span><span class="p">:</span>
+            <span class="p">...</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="p">...</span>
+        <span class="p">...</span>
+        <span class="p">...</span></code></pre></div>
+
+<p>This strategy is not without its benefits. For one thing, it’s reasonably straightforward to implement. For another, it makes it possible for your code to reason about events as data, so you can log them, serialize them, queue them, or whathaveyou.</p>
+
+<p>But it also implies a certain syntactical burden on the API user. All of your observer classes would need to inherit from an event-receiving base class, and it’s a non-trivial sort of inheritance too, since you’d have to overload a virtual method and inject it with some kind of control structure to handle the dispatch. On top of this, you’d have to come up with some way of distinguishing between different types of events, which almost always implies the existence of a big <code>enum</code> of event IDs that forces you to recompile your entire codebase when you modify it in any way.</p>
+
+<p>By contrast, a signals/slots system in the <a href="http://en.wikipedia.org/wiki/Qt_(framework)">Qt</a> tradition operates directly on <em>functions</em>. Indeed, when one speaks of “slots”, one simply means “a function that might get connected to, and subsequently invoked by, a signal object”. Once you have declared that a signal will be emitted with a certain set of parameters, you should be able to connect that signal with <em>any</em> function that receives those parameters. If that function happens to be an <em>instance method</em>, you should also be able to connect a signal to it without worrying about which class the method happens to belong to.</p>
+
+<h3 id="containable-delegates">Containable delegates</h3>
+
+<p>If we can connect signals to arbitrary functions, that means we must have some means of creating <em>lists</em> of those functions at runtime, and a means to invoke them at a later time.</p>
+
+<p>Let’s use the word <em>delegate</em> for an object that is able to store references to arbitrary functions of a specific signature. In the object-oriented world, this really implies two references: one to an instance method, and one to the object that scopes the method. If you “invoke” the delegate, you are asking it to call the instance method on the object.</p>
+
+<p>On a mechanical level, a signal is not much more than a container of delegates. When a signal is emitted, it really just iterates through its internal list of delegates and invokes them one by one. In high-level languages, this is trivial to implement, but it gets rather hairy when you have to worry about type consistency.</p>
+
+<p>In C++, it is straightforward to build lists of function pointers of the same signature, but once we have to store method-object pointer pairs, we need to find a way to get around the fact that the objects may have unrelated types. The simplest way to do this is via inheritance, plus a light dusting of template magic:</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="c1">// For the purposes of this example, let&#39;s assume our slots only accept</span>
+<span class="c1">// one parameter.</span>
+<span class="k">template</span><span class="o">&lt;</span> <span class="k">typename</span> <span class="n">TSlotParam</span> <span class="o">&gt;</span>
+<span class="k">class</span> <span class="nc">Delegate</span>
+<span class="p">{</span>
+<span class="k">public</span><span class="o">:</span>
+    <span class="k">virtual</span> <span class="o">~</span><span class="n">Delegate</span><span class="p">()</span> <span class="p">{}</span>
+    <span class="k">virtual</span> <span class="kt">void</span> <span class="n">Invoke</span><span class="p">(</span> <span class="n">TSlotParam</span> <span class="n">v</span> <span class="p">)</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">template</span><span class="o">&lt;</span> <span class="k">typename</span> <span class="n">TSlotParam</span><span class="p">,</span> <span class="k">class</span> <span class="nc">TObserver</span> <span class="o">&gt;</span>
+<span class="k">class</span> <span class="nc">TypeSpecificDelegate</span> <span class="o">:</span> <span class="n">Delegate</span><span class="o">&lt;</span> <span class="n">TSlotParam</span> <span class="o">&gt;</span>
+<span class="p">{</span>
+<span class="k">public</span><span class="o">:</span>
+    <span class="n">TObserver</span><span class="o">*</span> <span class="n">m_pObserver</span><span class="p">;</span>
+    <span class="kt">void</span> <span class="p">(</span><span class="n">TObserver</span><span class="o">::*</span><span class="n">m_fpSlot</span><span class="p">)(</span> <span class="n">TSlotParam</span> <span class="p">);</span>
+
+<span class="k">public</span><span class="o">:</span>
+    <span class="n">TypeSpecificDelegate</span><span class="p">(</span>
+        <span class="n">TObserver</span><span class="o">*</span> <span class="n">pObserver</span><span class="p">,</span>
+        <span class="kt">void</span> <span class="p">(</span><span class="n">TObserver</span><span class="o">::*</span><span class="n">fpSlot</span><span class="p">)(</span><span class="n">TSlotParam</span><span class="p">)</span> <span class="p">)</span>
+    <span class="o">:</span> <span class="n">m_pObserver</span><span class="p">(</span> <span class="n">pObserver</span> <span class="p">)</span>
+    <span class="p">,</span> <span class="n">m_fpSlot</span><span class="p">(</span> <span class="n">fpSlot</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// do nothing</span>
+    <span class="p">}</span>
+
+    <span class="kt">void</span> <span class="n">Invoke</span><span class="p">(</span> <span class="n">TSlotParam</span> <span class="n">v</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">pObserver</span><span class="o">-&gt;*</span><span class="n">fpSlot</span><span class="p">(</span><span class="n">v</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">};</span>
+
+<span class="k">template</span><span class="o">&lt;</span> <span class="k">typename</span> <span class="n">TSlotParam</span> <span class="o">&gt;</span>
+<span class="k">class</span> <span class="nc">Signal</span>
+<span class="p">{</span>
+    <span class="k">typedef</span> <span class="n">Delegate</span><span class="o">&lt;</span> <span class="n">TSlotParam</span> <span class="o">&gt;</span> <span class="n">TDelegate</span><span class="p">;</span>
+    <span class="k">typedef</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span> <span class="n">TDelegate</span><span class="o">*</span> <span class="o">&gt;</span> <span class="n">DelegateList</span><span class="p">;</span>
+
+    <span class="n">Delegate</span> <span class="n">m_oDelegates</span><span class="p">;</span>
+
+<span class="k">public</span><span class="o">:</span>
+    <span class="k">template</span><span class="o">&lt;</span> <span class="k">class</span> <span class="nc">TObserver</span><span class="p">,</span> <span class="k">class</span> <span class="nc">TObserverDerived</span> <span class="o">&gt;</span>
+    <span class="kt">void</span> <span class="n">Connect</span><span class="p">(</span>
+        <span class="n">TObserverDerived</span><span class="o">*</span> <span class="n">pObserverDerived</span><span class="p">,</span>
+        <span class="kt">void</span> <span class="p">(</span><span class="n">TObserver</span><span class="o">::*</span><span class="n">fpSlot</span><span class="p">)(</span><span class="n">TSlotParam</span><span class="p">)</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// This gives us the correct pointer in cases where</span>
+        <span class="c1">// multiple inheritance is involved.</span>
+        <span class="n">TObserver</span><span class="o">*</span> <span class="n">p</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span> <span class="n">TObserver</span><span class="o">*</span> <span class="o">&gt;</span><span class="p">(</span> <span class="n">pObserverDerived</span> <span class="p">);</span>
+
+        <span class="c1">// Add our delegate to the list</span>
+        <span class="n">m_oDelegates</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span>
+            <span class="k">new</span> <span class="n">TypeSpecificDelegate</span><span class="o">&lt;</span><span class="n">TSlotParam</span><span class="p">,</span> <span class="n">TObserver</span><span class="o">&gt;</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">fpSlot</span><span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="kt">void</span> <span class="n">Emit</span><span class="p">(</span> <span class="n">TSlotParam</span> <span class="n">v</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">for</span> <span class="p">(</span> <span class="n">DelegateList</span><span class="o">::</span><span class="n">iterator</span> <span class="n">i</span> <span class="o">=</span> <span class="n">m_oDelegates</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span>
+              <span class="n">i</span> <span class="o">!=</span> <span class="n">m_oDelegates</span><span class="p">.</span><span class="n">end</span><span class="p">();</span>
+              <span class="o">++</span><span class="n">i</span> <span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">i</span><span class="o">-&gt;</span><span class="n">Invoke</span><span class="p">(</span> <span class="n">v</span> <span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">};</span></code></pre></div>
+
+<p>This has the essence of a fairly standard C++ “functor” implementation: we hide the heterogeneity of the observer types using an abstract base class, and use a virtual “thunk” method for each observer type to handle the actual invocation.</p>
+
+<p>Tangentially, it does seem as if <a href="http://en.wikipedia.org/wiki/Anonymous_function#C.2B.2B">C++11’s <code>lambda</code></a> would obviate this kind of trick, although I’m not sure whether lambda objects implement enough operators (e.g., can they be compared?) to be inserted into standard library containers, to say nothing of whether your CTO feels like C++11 is mature enough for production code.</p>
+
+<h3 id="removing-virtual-functions-and-inheritance-from-delegates">Removing virtual functions and inheritance from delegates</h3>
+
+<p>While I haven’t always been of this mindset, I believe that if you can limit your code to the above level of complexity, then by all means do so. Nevertheless, some might balk at the use of inheritance here, which tends to produce certain undesirable consequences at runtime, including allocating to the heap and virtual function dispatch. As it turns out, numerous ingenious approaches (summarized nicely in <a href="http://stackoverflow.com/questions/4298408/5-years-later-is-there-something-better-than-the-fastest-possible-c-delegate/4300544">this StackOverflow thread</a>) have been proposed to deal with these concerns, which seems, on the one hand, to be a testament to C++’s impressive (some would say byzantine) flexibility, but perhaps also a sign that something like this really should just be part of the language.</p>
+
+<p><a href="https://www.flickr.com/photos/michaelsurtees/2967591803" title="Uploaded on September 7, 2008 by 9 0 0 0 by Michael Surtees, on Flickr"><img src="https://farm4.staticflickr.com/3269/2967591803_97e14ed6d4.jpg" width="500" height="459" alt="Uploaded on September 7, 2008 by 9 0 0 0" /></a></p>
+
+<p>By far the most famous of these approaches is Don Clugston’s <a href="http://www.codeproject.com/Articles/7150/Member-Function-Pointers-and-the-Fastest-Possible">FastDelegate library</a>, which was publicized in 2005 and remains, for my money, the best candidate for the job. Clugston’s implementation is based on the observation that instance method calls all look basically the same at the assembly level, where types don’t matter, and engages in some standard-violating thuggery to coerce member function pointers from disparate classes into living within the same delegate type. Invoking these delegates is as fast as any non-optimized function call.</p>
+
+<p>As an added bonus, indeed one that basically no other delegate library seems to offer (including, apparently, C++11 lambdas), Clugston’s delegates are comparable by value, which implies that they are practical for use with container classes. To see why comparability might be important, imagine implementing signals with a delegate library that didn’t let you compare delegates. How would you <em>disconnect</em> a particular method-object pointer pair if you couldn’t compare it with the delegates already stored in the signal?</p>
+
+<h3 id="automatic-disconnection">Automatic disconnection</h3>
+
+<p>If you’re with me so far, then you will recognize that signals are basically just <em>big lists of pointers</em>. This is a rather serious concern if your signals connect to observers that are deleted over the course of program execution. How can we prevent the pointers cached inside signal objects from dangling?</p>
+
+<p>You could start, as I did, by simply ignoring the problem. Within the observer pattern, there are two <em>explicit</em> parties, the observers and the observed, and a third <em>implicit</em> party, which is whatever or whoever actually does the connecting between the observers and the observed. At a glance, it seems reasonable to enforce a Boy Scout Campsite Principle of sorts (i.e., leave the campsite as clean or cleaner than when you got to it), and place the responsibility of disconnection on the code that created the connections in the first place.</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="c1">// The &quot;Boy Scout&quot; principle of signal disconnection:</span>
+<span class="c1">// clean up your own mess!</span>
+<span class="k">class</span> <span class="nc">ExampleContext</span>
+<span class="p">{</span>
+    <span class="kt">void</span> <span class="n">Init</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="n">m_pButton</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Button</span><span class="p">();</span>
+        <span class="n">m_pWindow</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Window</span><span class="p">();</span>
+        <span class="n">m_pButton</span><span class="o">-&gt;</span><span class="n">ClickSignal</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">Connect</span><span class="p">(</span> <span class="n">m_pWindow</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">Window</span><span class="o">::</span><span class="n">Open</span> <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="kt">void</span> <span class="n">Deinit</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="n">m_pButton</span><span class="o">-&gt;</span><span class="n">ClickSignal</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">Disconnect</span><span class="p">(</span> <span class="n">m_pWindow</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">Window</span><span class="o">::</span><span class="n">Open</span> <span class="p">);</span>
+        <span class="k">delete</span> <span class="n">m_pWindow</span><span class="p">;</span> <span class="n">m_pWindow</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="k">delete</span> <span class="n">m_pButton</span><span class="p">;</span> <span class="n">m_pButton</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In practice, this quickly leads to an untenable mess. Having to accompany every <code>delete</code> statement with additional cleanup is the stuff maintanence nightmares are made of. What’s more is that unless you’re exceptionally careful about your abstractions, the system you implement may need to delete your observer objects <em>outside</em> the context that created the signal/slot connections, which means you lose any parallel niceness between the the code that connects and the code that disconnects.</p>
+
+<p>On an aesthetic level, too, you will note that a lot of your disconnection code looks the same: you list out the connections an observer has made and disconnect them one by one. If you do that enough, you start to wonder if you couldn’t just put a list of connections into the observer itself, and process that list in the observer’s destructor.</p>
+
+<p>What this leads to is a <em>common base class</em> for observers, something which I’d initially tried to avoid, but seemed necessary if I really wanted to enforce certain bookkeeping rules upon my observer objects. Fortunately, since there are no virtual functions to overload, it’s a relatively unobtrusive form of inheritance. We just inherit from the observer base class and then politely pretend like it never happened.</p>
+
+<p><a href="https://www.flickr.com/photos/dis2105_jpkla1/8546797297" title="Typeset as image/diagram by James Kladouris, on Flickr"><img src="https://farm9.staticflickr.com/8249/8546797297_e6572256d0.jpg" width="500" height="304" alt="Typeset as image/diagram" /></a></p>
+
+<h3 id="simplifying-the-c-syntax">Simplifying the C++ syntax</h3>
+
+<p>Signal classes in <code>jl_signal are</code> instances of signal template classes. There is one template class for every <a href="https://twitter.com/NeckbeardHacker/status/184398999506264067">arity value</a> (argument count) up to 8. So the declaration of these template classes look something like the following:</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">template</span><span class="o">&lt;</span> <span class="k">typename</span> <span class="n">P1</span> <span class="o">&gt;</span>
+<span class="k">class</span> <span class="nc">Signal1</span> <span class="p">{</span> <span class="p">....</span> <span class="p">};</span>
+
+<span class="k">template</span><span class="o">&lt;</span> <span class="k">typename</span> <span class="n">P1</span><span class="p">,</span> <span class="k">typename</span> <span class="n">P2</span> <span class="o">&gt;</span>
+<span class="k">class</span> <span class="nc">Signal2</span> <span class="p">{</span> <span class="p">...</span> <span class="p">};</span>
+
+<span class="p">...</span>
+
+<span class="k">template</span><span class="o">&lt;</span> <span class="k">typename</span> <span class="n">P1</span><span class="p">,</span> <span class="k">typename</span> <span class="n">P2</span><span class="p">,</span> <span class="k">typename</span> <span class="n">P3</span><span class="p">,</span> <span class="p">...,</span> <span class="k">template</span> <span class="n">P8</span> <span class="o">&gt;</span>
+<span class="k">class</span> <span class="nc">Signal8</span> <span class="p">{</span> <span class="p">...</span> <span class="p">};</span></code></pre></div>
+
+<p>Note how each template class embeds its arity value in its name. From the perspective of someone using the API, it seems redundant and tedious to specify the arity in the typename; after all, you will immediately follow this with a list of types whose size is exactly that arity. Doesn’t it seem like their should be a way for the compiler to deduce this automatically?</p>
+
+<p>C++ does not allow you to do this directly. To wit, you cannot do the following:</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">template</span><span class="o">&lt;</span> <span class="k">typename</span> <span class="n">P1</span> <span class="o">&gt;</span>
+<span class="k">class</span> <span class="nc">Signal</span> <span class="p">{</span> <span class="p">...</span> <span class="p">};</span>
+
+<span class="k">template</span><span class="o">&lt;</span> <span class="k">typename</span> <span class="n">P1</span><span class="p">,</span> <span class="k">typename</span> <span class="n">P2</span> <span class="o">&gt;</span>
+<span class="k">class</span> <span class="nc">Signal</span> <span class="p">{</span> <span class="p">...</span> <span class="p">};</span>
+
+<span class="k">typedef</span> <span class="n">Signal</span><span class="o">&lt;</span> <span class="kt">int</span> <span class="o">&gt;</span> <span class="n">SignalInt</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="n">Signal</span><span class="o">&lt;</span> <span class="kt">int</span><span class="p">,</span> <span class="kt">char</span> <span class="o">&gt;</span> <span class="n">SignalIntChar</span><span class="p">;</span></code></pre></div>
+
+<p>The reasons why this is disallowed are arcane. At first glance, it seems like the compiler ought to have no problem disambiguating between specializations of either template class. And still, excepting C++11’s <a href="http://en.wikipedia.org/wiki/Variadic_template">variadic templates</a>, there is no straightforward way of arbitrarily expanding the number of arguments in a template specialization. What you are left with, instead, are tricks of varying levels of sneakiness and absurdity. (When your appetite for template magic is sufficiently large, why not try <a href="http://templog.svn.sourceforge.net/viewvc/templog/code/trunk/tuples.h?revision=47&amp;view=markup">this head-exploder</a> on for size?)</p>
+
+<p>In <code>jl_signal</code>, I settled on the same strategy used by FastDelegate to simplify its own class naming. This strategy exploits the fact that arbitrary <em>function types</em> count as single template parameters.</p>
+
+<p>You don’t lose points here for not knowing what a “function type” is; I’d never heard of, much less used, function types until implementing this library. It was once explained to me that function types were simply the non-pointer counterpart to function pointer types, just as <code>int</code> is the non-pointer counterpart to <code>int*</code>. Since C and C++ do not offer first-class functions, the function type seems to me like the computational analog of the mythical Yeti, or perhaps the sound of one hand clapping.</p>
+
+<p>Regardless of their existential dubiousness, function types allow you to grossly manipulate template syntax when you combine them with some trivial inheritance. We remove arity from signal typenames thusly:</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="c1">// Forward-declare an empty template class</span>
+<span class="k">template</span><span class="o">&lt;</span> <span class="k">typename</span> <span class="n">SomeFunctionType</span> <span class="o">&gt;</span>
+<span class="k">class</span> <span class="nc">Signal</span><span class="p">;</span>
+
+<span class="c1">// Specialize the above with a function type and trivially inherit</span>
+<span class="c1">// from the signal class with the arity in the typename.</span>
+<span class="k">template</span><span class="o">&lt;</span> <span class="k">typename</span> <span class="n">ReturnType</span><span class="p">,</span> <span class="k">typename</span> <span class="n">P1</span><span class="p">,</span> <span class="k">typename</span> <span class="n">P2</span> <span class="o">&gt;</span>
+<span class="k">class</span> <span class="nc">Signal</span><span class="o">&lt;</span> <span class="n">ReturnType</span><span class="p">(</span><span class="n">P1</span><span class="p">,</span> <span class="n">P2</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">:</span> <span class="k">public</span> <span class="n">Signal2</span><span class="o">&lt;</span> <span class="n">P1</span><span class="p">,</span> <span class="n">P2</span> <span class="o">&gt;</span>
+<span class="p">{</span>
+    <span class="c1">// Nothing required in here. But since this is not exactly</span>
+    <span class="c1">// the same type as its parent, you might want to implement</span>
+    <span class="c1">// copy constructors that can translate the parent type to</span>
+    <span class="c1">// the derived type, and vice-versa.</span>
+<span class="p">};</span></code></pre></div>
+
+<p>Note that for our immediate purposes purposes, the <code>ReturnType</code> parameter is unused. It still has to be included in declarations, which results in such verbosely unsavory constructions as the following:</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">typedef</span> <span class="n">jl</span><span class="o">::</span><span class="n">Signal</span><span class="o">&lt;</span> <span class="kt">void</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">SignalInt</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="n">jl</span><span class="o">::</span><span class="n">Signal</span><span class="o">&lt;</span> <span class="kt">void</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">char</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">SignalIntChar</span><span class="p">;</span></code></pre></div>
+
+<p>In order to obscure the <code>ReturnType</code> component, I resorted to a macro. Regardless of one’s distaste for the preprocessor, I imagine most people would find the results more palatable:</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">JL_SIGNAL</span><span class="p">()</span> <span class="n">oSignalThatEmitsNoParams</span><span class="p">;</span>
+<span class="n">JL_SIGNAL</span><span class="p">(</span> <span class="kt">int</span> <span class="p">)</span> <span class="n">oSignalThatEmitsInt</span><span class="p">;</span>
+<span class="n">JL_SIGNAL</span><span class="p">(</span> <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="k">const</span><span class="o">*</span> <span class="p">)</span> <span class="n">oEmitsConstArraysOfConstStrings</span><span class="p">;</span>
+<span class="n">JL_SIGNAL</span><span class="p">(</span> <span class="kt">unsigned</span><span class="p">,</span> <span class="kt">double</span><span class="p">,</span> <span class="kt">size_t</span><span class="p">,</span> <span class="kt">char</span><span class="o">**&amp;</span> <span class="p">)</span> <span class="n">oSignalThatIsComplicated</span><span class="p">;</span>
+<span class="n">JL_SIGNAL</span><span class="p">(</span> <span class="n">JL_SIGNAL</span><span class="p">()</span><span class="o">&amp;</span> <span class="p">)</span> <span class="n">oSignalThatIsMeta</span><span class="p">;</span></code></pre></div>
+
+<p>Anyway, while we’ve managed to simplify life for the API user, things are unavoidable ugly for the API <em>implementer</em>, who is still burdened with the task of populating a header file with nine nearly-identical template classes, one for each arity (again, C++11 notwithstanding). At first I used the C preprocessor for this, which predictably made debugging a living hell, and after a while regressed to expanding the macros and manually propagating any subsequent change nine times over. This tactic proved to be as stultifying as it was bug-prone. Shortly thereafter I achieved a Zen-like state of madness and actually wrote an entire macro language in order to produce this one header, the embarrassing results of which have long since been scattered into the digital ether.</p>
+
+<p>Finally, when tidying up the library for this article, I settled on using <a href="http://en.wikipedia.org/wiki/ERuby">ERB</a>, which, owing to a syntax that looks nothing like C++ code, turned out to be a pretty pleasant experience. For what it’s worth, I’m hardly alone when it comes to building custom preprocessors for tediously repetitive code. Clugston <a href="https://github.com/dreamcat4/FastDelegate/blob/master/hopter/Hopter.cpp">more or less did the same</a> with FastDelegate.</p>
+
+<h3 id="eliminating-heap-allocations">Eliminating heap allocations</h3>
+
+<p><code>jl_signal</code>’s original use case was for building user interfaces in console games, a particularly resource-limited category of software whose practitioners tend to disdain heap-based dynamic memory allocation. This is not entirely without reason. For one thing, it can <a href="https://twitter.com/tom_forsyth/status/223558586373124096">be pretty slow</a>, but more than this, it risks inefficient memory use due to fragmentation.</p>
+
+<p><code>jl_signal</code>, with to its penchant for linked lists, poses a serious fragmentation risk. Each connection allocates a couple of tiny objects (three to five <code>int</code>’s worth of space) that will absolutely shred your contiguous free memory if you’re not careful.</p>
+
+<p>One strategy for containing the fragmentation issue is to subdivide your free store into multiple purpose-built heaps. Instead of using the system’s <code>malloc()</code>, you can create you own heaps that offer up memory from their own internal buffers, and then use a <a href="http://en.wikipedia.org/wiki/Placement_syntax">placement <code>new</code></a> to create your objects. This provides some structural guarantee that allocations in different heaps won’t interfere with each other.</p>
+
+<p><a href="https://www.flickr.com/photos/devinshire/2535738564" title="Fruit buckets by Devin Connolly, on Flickr"><img src="https://farm4.staticflickr.com/3084/2535738564_261747e8b7.jpg" width="500" height="375" alt="Fruit buckets" /></a></p>
+
+<p>Alternatively, if you know something ahead of time about the size of allocations you’re going to make, you can use <a href="http://en.wikipedia.org/wiki/Memory_pool">fixed-size block allocators</a>, which just might be the holy grail of performance-sensitive dynamic memory allocation. Pretty much any performance- or fragmentation-related concern associated with memory allocation arises from the fact that the runtime has to deal with allocations of different sizes. If your application can be made to consume allocations of identical size, then you have categorically eliminated the fragmentation issue, and you have reduced allocator operations down to what amounts to simple linked list manipulation.</p>
+
+<p>Luckily, <code>jl_signal</code> only makes two different kinds of allocations, each of an exact size. So long as we can make a hard estimate regarding the maximum number of connections our program will make, we can go ahead and reserve a fixed chunk of memory for the entire API at program initialization and call it a day. Assuming this would be a good thing for most applications, I went ahead and packaged the library with <code>jl::ObjectPool</code>, a simple fixed-size block allocator, and <code>jl::DoublyLinkedList</code>, a linked list class that can be configured to use custom allocators at runtime.</p>
+
+<p>On a tangential note, it’s interesting to explore how a fixed-size block allocator would work without employing dynamic memory allocation itself. After all, if the allocator is ultimately a list of free memory chunks, then where do the nodes of this list get allocated? The solution, which I gamely stole from <a href="http://www.boost.org/doc/libs/1_35_0/libs/pool/doc/interfaces/object_pool.html">Boost</a> and will take no credit for, is simply to cannibalize the free memory chunks themselves, using each to store a pointer to the next free chunk. A minimal allocator implementation would thus only require single pointer, referencing the head of the free list.</p>
+
+<p><img src="/assets/images/2012-08-06-jl_signal-objectpool_freelist.png" alt="Diagram of a block allocator's free list" /></p>
+
+<p>For what it’s worth, this kind of memory re-use seems about as close as you can get to a Platonic use case for <code>union</code> or <code>reinterpret_cast</code>, C/C++ language devices that are otherwise frequent accessories to all sorts of type-unsafe hackery and mayhem.</p>
+
+<h3 id="catastrophic-delegate-behavior-or-why-you-might-not-want-to-use-this-api">Catastrophic delegate behavior, or why you might not want to use this API</h3>
+
+<p><code>jl_signal</code> does nothing fancy when you call <code>Emit()</code> on signal objects. Under the hood, you have a doubly-linked list, traversed by your standard iterator that follows next pointers. This is untroubling until you consider code such as this:</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">JL_SIGNAL</span><span class="p">()</span> <span class="n">oSignal</span><span class="p">;</span>
+
+<span class="kt">void</span> <span class="nf">f1</span><span class="p">()</span> <span class="p">{</span> <span class="n">oSignal</span><span class="p">.</span><span class="n">Disconnect</span><span class="p">(</span> <span class="o">&amp;</span><span class="n">f1</span> <span class="p">);</span> <span class="p">}</span>
+<span class="kt">void</span> <span class="nf">f2</span><span class="p">()</span> <span class="p">{</span> <span class="cm">/* do something */</span> <span class="p">}</span>
+
+<span class="n">oSignal</span><span class="p">.</span><span class="n">Connect</span><span class="p">(</span> <span class="o">&amp;</span><span class="n">f1</span> <span class="p">);</span>
+<span class="n">oSignal</span><span class="p">.</span><span class="n">Connect</span><span class="p">(</span> <span class="o">&amp;</span><span class="n">f2</span> <span class="p">);</span>
+
+<span class="n">oSignal</span><span class="p">.</span><span class="n">Emit</span><span class="p">();</span></code></pre></div>
+
+<p>Calling <code>Disconnect()</code> on a signal while the same signal is still processing an <code>Emit()</code> certainly sounds like trouble. The current implementation of <code>jl_signal</code> does not handle this well at all: as soon as a slot is disconnected, the internal delegate node is freed and the iterator is left with a dangling pointer.</p>
+
+<div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="c1">// A sample Emit() method on a signal object for slots that take</span>
+<span class="c1">// two arguments.</span>
+<span class="kt">void</span> <span class="nf">Emit</span><span class="p">(</span> <span class="n">TArg1</span> <span class="n">a1</span><span class="p">,</span> <span class="n">TArg2</span> <span class="n">a2</span> <span class="p">)</span> <span class="k">const</span>
+<span class="p">{</span>
+    <span class="c1">// Here, the iterator is just a pointer to a list node.</span>
+    <span class="c1">// Incrementing the iterator means that we just follow the node&#39;s</span>
+    <span class="c1">// &quot;next&quot; pointer. But what happens if the current node is freed</span>
+    <span class="c1">// before the iterator can be incremented?</span>
+    <span class="k">for</span> <span class="p">(</span> <span class="n">ConnectionListIter</span> <span class="n">i</span> <span class="o">=</span> <span class="n">m_oConnections</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span>
+          <span class="n">i</span><span class="p">.</span><span class="n">isValid</span><span class="p">();</span>
+          <span class="o">++</span><span class="n">i</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">i</span><span class="o">-&gt;</span><span class="n">delegate</span><span class="p">.</span><span class="n">invoke</span><span class="p">(</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span> <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="c1">// I also considered the following design, which solves the</span>
+    <span class="c1">// above problem by moving it to a different location.</span>
+    <span class="c1">// What if, by invoking the delegate, we disconnect the NEXT</span>
+    <span class="c1">// delegate? We&#39;re still left with a corrupt iterator.</span>
+    <span class="n">ConnectionListIter</span> <span class="n">i</span> <span class="o">=</span> <span class="n">m_oConnections</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span>
+    <span class="k">while</span> <span class="p">(</span> <span class="n">i</span><span class="p">.</span><span class="n">isValid</span><span class="p">()</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">ConnectionNode</span><span class="o">*</span> <span class="n">c</span> <span class="o">=</span> <span class="o">*</span><span class="n">i</span><span class="p">;</span>
+        <span class="o">++</span><span class="n">i</span><span class="p">;</span>
+        <span class="n">c</span><span class="o">-&gt;</span><span class="n">delegate</span><span class="p">.</span><span class="n">invoke</span><span class="p">(</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span> <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>One can imagine all sorts of enormously gnarly hacks to compensate for the iteration problem, e.g. a signal that tracks its own iterators and notifies them when they get modified (ugh), or maybe an iteration mechanism that chooses its next delegate based on the set-difference between the complete list of delegates and the list of delegates already invoked (blech). I sort of suspect that there is no aesthetically-pleasing solution.</p>
+
+<p>This problem seems to speak towards a general weakness not only in the <code>jl_signal</code> library, but also in the signals/slots idiom and perhaps even the observer pattern at large. The general mechanic exists to obscure secondary side-effects at the source level, which is very useful, but the same obscurement can make it extremely difficult to see when those side-effects could potentially interfere with the mechanic itself.</p>
+
+<p><a href="https://www.flickr.com/photos/amobeaeightyfour/4825849027" title="Supersonic B3 by Richard Perez, on Flickr"><img src="https://farm5.staticflickr.com/4135/4825849027_3008c7cbae.jpg" width="500" height="500" alt="Supersonic B3" /></a></p>
+
+<p>After a cursory review of other similar (read: relatively bespoke and not widely-used) libraries, I gather that most implementers just choose to ignore the issue. Even in cases of more battle-tested APIs, this problem doesn’t seem to be resolved with anything resembling intuitive cleanliness. For example, <a href="https://gist.github.com/3234250">jQuery appears to copy event callbacks</a> into an immutable list immediately before invoking them, such that a single event broadcast will invoke <em>all</em> attached callbacks, regardless of whether later callbacks may be disconnected as a result of earlier callbacks. As for Qt, I’m sure the problem is alleviated somewhat by the fact that all participating classes are subsumed under a hermetically-sealed object system, but <a href="http://delta.affinix.com/2008/02/04/signal-safety-revised/">the literature suggests</a> that it’s not a trivial problem, even for the API that champions the signals/slots paradigm.</p>
+
+  </div>
+
+</div>
+
+    </div> <!-- #page-content -->
+
+    <div id="footer">
+      <div id="footer-left">
+        <ul>
+          <li><a href="/">Hoyvin Glavin!</a></li>
+          <li><a href="/feed.xml">RSS</a></li>
+        </ul>
+      </div>
+      <div id="footer-right">
+        <a href="http://creativecommons.org/licenses/by-nc-nd/4.0/">CC BY-NC-ND</a>, except externally linked-images.
+      </div>
+    </div>
+
+    </div> <!-- #bodywrap -->
+  </body>
+</html>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title></title>
+    <description></description>
+    <link></link>
+    <atom:link href="/feed.xml" rel="self" type="application/rss+xml" />
+    
+      <item>
+        <title>Accessing Rails helpers outside views</title>
+        
+          <dc:creator>Jeff Lee</dc:creator>
+        
+        
+          <description>&lt;p&gt;&lt;a href=&quot;https://www.flickr.com/photos/rg69olds/7876825078&quot; title=&quot;fence by R G, on Flickr&quot;&gt;&lt;img src=&quot;https://farm9.staticflickr.com/8430/7876825078_3d298a8ea2.jpg&quot; width=&quot;500&quot; height=&quot;333&quot; alt=&quot;fence&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Sun, 07 Oct 2012 00:00:00 +0100</pubDate>
+        <link>/2012/10/07/accessing-rails-helpers-outside-views/</link>
+        <guid isPermaLink="true">/2012/10/07/accessing-rails-helpers-outside-views/</guid>
+      </item>
+    
+      <item>
+        <title>JCVJ mini-postmortem</title>
+        
+          <dc:creator>Jeff Lee</dc:creator>
+        
+        
+          <description>&lt;p&gt;&lt;img src=&quot;/assets/images/2012-08-22-jcvj-mini-postmortem-intro.jpg&quot; alt=&quot;I knew Thailand very well, so I showed her my Thailand.&quot; /&gt;&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Wed, 22 Aug 2012 00:00:00 +0100</pubDate>
+        <link>/2012/08/22/jcvj-mini-postmortem/</link>
+        <guid isPermaLink="true">/2012/08/22/jcvj-mini-postmortem/</guid>
+      </item>
+    
+      <item>
+        <title>A C++ signal/slots library, mostly from the ground up</title>
+        
+          <dc:creator>Jeff Lee</dc:creator>
+        
+        
+          <description>&lt;p&gt;&lt;a href=&quot;https://www.flickr.com/photos/garrycalderwood/6815567124&quot; title=&quot;&amp;#x27;Post Modern Times&amp;#x27; by Garry Calderwood, on Flickr&quot;&gt;&lt;img src=&quot;https://farm8.staticflickr.com/7052/6815567124_4df7667a98.jpg&quot; width=&quot;500&quot; height=&quot;500&quot; alt=&quot;&amp;#x27;Post Modern Times&amp;#x27;&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Mon, 06 Aug 2012 00:00:00 +0100</pubDate>
+        <link>/2012/08/06/jl_signal/</link>
+        <guid isPermaLink="true">/2012/08/06/jl_signal/</guid>
+      </item>
+    
+      <item>
+        <title>Redis as a mutex service</title>
+        
+          <dc:creator>Jeff Lee</dc:creator>
+        
+        
+          <description>&lt;p&gt;&lt;a href=&quot;https://www.flickr.com/photos/xserve/368758286&quot; title=&quot;Lock by Lok Leung, on Flickr&quot;&gt;&lt;img src=&quot;https://farm1.staticflickr.com/115/368758286_e4dcb5ae53.jpg&quot; width=&quot;500&quot; height=&quot;334&quot; alt=&quot;Lock&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Sun, 29 Apr 2012 00:00:00 +0100</pubDate>
+        <link>/2012/04/29/redis-as-a-mutex-service/</link>
+        <guid isPermaLink="true">/2012/04/29/redis-as-a-mutex-service/</guid>
+      </item>
+    
+      <item>
+        <title>On the productive use of metrics in the development of gory vampire games</title>
+        
+          <dc:creator>Jeff Lee</dc:creator>
+        
+        
+          <description>&lt;p&gt;&lt;img src=&quot;/assets/images/2011-06-21-game-metrics-rayne.png&quot; alt=&quot;BloodRayne: Betrayal gameplay&quot; /&gt;&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Tue, 21 Jun 2011 00:00:00 +0100</pubDate>
+        <link>/2011/06/21/game-metrics/</link>
+        <guid isPermaLink="true">/2011/06/21/game-metrics/</guid>
+      </item>
+    
+      <item>
+        <title>MySQL timestamp column type considered harmful</title>
+        
+          <dc:creator>Jeff Lee</dc:creator>
+        
+        
+          <description>&lt;p&gt;&lt;a href=&quot;https://www.flickr.com/photos/telstar/433029904&quot; title=&quot;Time Selector by Todd Lappin, on Flickr&quot;&gt;&lt;img src=&quot;https://farm1.staticflickr.com/174/433029904_27dd44a95a.jpg&quot; width=&quot;500&quot; height=&quot;381&quot; alt=&quot;Time Selector&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Thu, 06 Jan 2011 00:00:00 +0000</pubDate>
+        <link>/2011/01/06/mysql-timestamp-column-type-considered-harmful/</link>
+        <guid isPermaLink="true">/2011/01/06/mysql-timestamp-column-type-considered-harmful/</guid>
+      </item>
+    
+      <item>
+        <title>The Game of Life</title>
+        
+          <dc:creator>Jeff Lee</dc:creator>
+        
+        
+          <description>&lt;p&gt;&lt;img src=&quot;/assets/images/2010-12-10-the-game-of-life-intro1.png&quot; alt=&quot;A board from Conway&#39;s Game of Life&quot; /&gt;&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Fri, 10 Dec 2010 00:00:00 +0000</pubDate>
+        <link>/2010/12/10/the-game-of-life/</link>
+        <guid isPermaLink="true">/2010/12/10/the-game-of-life/</guid>
+      </item>
+    
+  </channel>
+</rss>

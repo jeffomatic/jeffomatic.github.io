@@ -1,0 +1,72 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="/assets/style/site.css">
+    <link rel="stylesheet" href="/assets/style/highlights.css">
+    <title></title>
+  </head>
+  <body>
+    <div id="bodywrap">
+      <div id="site-header">
+        <h1><a href="/">HOYVIN GLAVIN!</a></h1>
+        <div id="site-subtitle">On technical minutiae, by <a href="http://jeff.blamblamblam.net">Jeff Lee</a></div>
+      </div>
+
+      <div id="page-content">
+
+<div class="post">
+
+  <div class="post-header">
+
+    <div class="post-date">OCTOBER 7, 2012</div>
+    <h2><a href="/2012/10/07/accessing-rails-helpers-outside-views/">Accessing Rails helpers outside views</a></h2>
+
+  </div>
+
+  <div class="post-content">
+  <p><a href="https://www.flickr.com/photos/rg69olds/7876825078" title="fence by R G, on Flickr"><img src="https://farm9.staticflickr.com/8430/7876825078_3d298a8ea2.jpg" width="500" height="333" alt="fence" /></a></p>
+
+<p>Prominent among my gripes about Rails is its handling of view helpers. These are mixed into the view object to provide easy access from template code, but the price of this convenience is a total lack of namespacing, reminiscent of ye olden PHP days.</p>
+
+<p>What’s more is that Rails seems to have an excessively narrow opinion about what constitutes a “view”: view helpers are easy to call from HTML and email templates, but there’s no consideration paid to other possible outlets from your app, including HTTP headers, command line output, file streams, or email subject lines.</p>
+
+<p>Solutions to the latter problem are divers and arcane, frequently involving an undocumented, hard-to-remember expression that dispatches helpers through the controller instance. Of course, this works if you’ve actually got a controller instance handy, but isn’t so great when you’re, say, running a Rake task. And in the first place, since most helper methods are just text filters, it seems silly that they should be coupled to this or that object. Why can’t we just call them from anywhere, as the generic utilities that they are?</p>
+
+<p>As it turns out, most of the built-in helper methods are mixed into the <code>ActionView::Helpers</code> module as instance methods. In order to call them as globals, you need to host them in another module where they appear as class methods. And thus, my favorite workaround:</p>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="c1"># Put this into extra/my_proj/helpers.rb</span>
+<span class="k">module</span> <span class="nn">MyProj</span>
+  <span class="k">module</span> <span class="nn">Helpers</span>
+    <span class="kp">extend</span> <span class="no">ActionView</span><span class="o">::</span><span class="no">Helpers</span>
+  <span class="k">end</span>
+<span class="k">end</span></code></pre></div>
+
+<p>With this in place, you can call your helpers as globally-accessible methods, as follows:</p>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="no">MyProj</span><span class="o">::</span><span class="no">Helpers</span><span class="o">.</span><span class="n">pluralize</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;person&#39;</span><span class="p">)</span>
+<span class="no">MyProj</span><span class="o">::</span><span class="no">Helpers</span><span class="o">.</span><span class="n">simple_format</span><span class="p">(</span><span class="n">string</span><span class="p">)</span></code></pre></div>
+
+<p>The pleasant thing about this solution is that it’s easy to remember, and works from whatever context you’re in, whether it’s the body of a Rake task, a controller action, a method on a model class, or even your view templates.</p>
+
+  </div>
+
+</div>
+
+    </div> <!-- #page-content -->
+
+    <div id="footer">
+      <div id="footer-left">
+        <ul>
+          <li><a href="/">Hoyvin Glavin!</a></li>
+          <li><a href="/feed.xml">RSS</a></li>
+        </ul>
+      </div>
+      <div id="footer-right">
+        <a href="http://creativecommons.org/licenses/by-nc-nd/4.0/">CC BY-NC-ND</a>, except externally linked-images.
+      </div>
+    </div>
+
+    </div> <!-- #bodywrap -->
+  </body>
+</html>
