@@ -2,7 +2,10 @@ name: Hoyvin Glavin!
 description: On technical minutiae, by Jeff Lee
 url: http://hoyvinglavin.com
 
-exclude: Gemfile, Gemfile.lock, CNAME
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - CNAME
 permalink: pretty
 
 gems:
