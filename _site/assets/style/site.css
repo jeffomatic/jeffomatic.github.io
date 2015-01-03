@@ -1,3 +1,4 @@
+@import url(http://fonts.googleapis.com/css?family=Goudy+Bookletter+1911);
 @import url(http://fonts.googleapis.com/css?family=PT+Sans+Narrow);
 html {
   font-family: Georgia, serif;
@@ -18,8 +19,8 @@ pre {
 
 #footer {
   font-size: .9em;
-  margin-top: 0.1em;
-  margin-bottom: 1em; }
+  margin-top: 0.3em;
+  padding-bottom: 3em; }
 
 h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
   text-decoration: none;
@@ -29,6 +30,7 @@ h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
   text-align: center;
   margin-bottom: 3em; }
   #site-header h1 {
+    font-family: "Goudy Bookletter 1911", Georgia, serif;
     margin-bottom: 0.2em; }
 
 #site-subtitle {
@@ -53,19 +55,19 @@ h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
 h1, h2, h3, h4, h5, h6, #footer, .post-date, .toc-item-date {
   font-family: "PT Sans Narrow", "Helvetica Neue", Helvetica, Arial, sans-serif; }
 
-#toc td {
-  vertical-align: top; }
-#toc .toc-item-date {
-  text-align: right; }
-#toc .toc-item-title {
-  padding-left: 0.5em; }
-
 #page-content {
   border-top: 1px #EEE solid;
   border-bottom: 1px #EEE solid;
   padding-top: 1em;
   padding-bottom: 1em;
   text-align: left; }
+
+#toc td {
+  vertical-align: top; }
+#toc .toc-item-date {
+  text-align: right; }
+#toc .toc-item-title {
+  padding-left: 0.5em; }
 
 .post-header {
   margin-top: -1.9em;

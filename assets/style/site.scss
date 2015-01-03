@@ -1,6 +1,7 @@
 ---
 ---
 
+@import url(http://fonts.googleapis.com/css?family=Goudy+Bookletter+1911);
 @import url(http://fonts.googleapis.com/css?family=PT+Sans+Narrow);
 
 html {
@@ -26,8 +27,8 @@ pre {
 
 #footer {
   font-size: .9em;
-  margin-top: 0.1em;
-  margin-bottom: 1em;
+  margin-top: 0.3em;
+  padding-bottom: 3em;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -42,6 +43,7 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 3em;
 
   h1 {
+    font-family: "Goudy Bookletter 1911", Georgia, serif;
     margin-bottom: 0.2em;
   }
 }
@@ -78,6 +80,16 @@ h1, h2, h3, h4, h5, h6, #footer, .post-date, .toc-item-date {
   font-family: "PT Sans Narrow", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
+#page-content {
+  border-top: 1px #EEE solid;
+  border-bottom: 1px #EEE solid;
+
+  padding-top: 1em;
+  padding-bottom: 1em;
+
+  text-align: left;
+}
+
 #toc {
   td {
     vertical-align: top;
@@ -90,16 +102,6 @@ h1, h2, h3, h4, h5, h6, #footer, .post-date, .toc-item-date {
   .toc-item-title {
     padding-left: 0.5em;
   }
-}
-
-#page-content {
-  border-top: 1px #EEE solid;
-  border-bottom: 1px #EEE solid;
-
-  padding-top: 1em;
-  padding-bottom: 1em;
-
-  text-align: left;
 }
 
 .post-header {
