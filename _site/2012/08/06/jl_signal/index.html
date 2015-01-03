@@ -321,7 +321,7 @@
 
 <h3 id="catastrophic-delegate-behavior-or-why-you-might-not-want-to-use-this-api">Catastrophic delegate behavior, or why you might not want to use this API</h3>
 
-<p><code>jl_signal</code> does nothing fancy when you call <code>Emit()</code> on signal objects. Under the hood, you have a doubly-linked list, traversed by your standard iterator that follows next pointers. This is untroubling until you consider code such as this:</p>
+<p><code>jl_signal</code> does nothing fancy when you call <code>Emit()</code> on signal objects. Under the hood, you have a doubly-linked list, traversed by your standard iterator that follows <code>next</code> pointers. This is untroubling until you consider code such as this:</p>
 
 <div class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">JL_SIGNAL</span><span class="p">()</span> <span class="n">oSignal</span><span class="p">;</span>
 
