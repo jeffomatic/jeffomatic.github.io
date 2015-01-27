@@ -3,9 +3,10 @@
 
 @import url(http://fonts.googleapis.com/css?family=Goudy+Bookletter+1911);
 @import url(http://fonts.googleapis.com/css?family=PT+Sans+Narrow);
+@import url(http://fonts.googleapis.com/css?family=Lusitana:400,700);
 
 html {
-  font-family: Georgia, serif;
+  font-family: Lusitana, Georgia, serif;
   background: white;
   color: #444;
   font-size: 1.03em;
@@ -75,10 +76,6 @@ h1, h2, h3, h4, h5, h6 {
 
 #footer-right {
   float: right;
-}
-
-h1, h2, h3, h4, h5, h6, #footer, .post-date, .toc-item-date {
-  font-family: "PT Sans Narrow", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 #page-content {
