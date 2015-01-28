@@ -51,7 +51,7 @@ A few things to note here:
 
 In both examples, the assignment expression `b := a` creates a second [slice header](http://golang.org/pkg/reflect/#SliceHeader), one that happens to have the same buffer pointer, length, and capacity as the first. As long as neither `a` nor `b` is reassigned, they are effectively aliases of the same slice. However, if either or both are reassigned in an append expression such as `a = append(a, 1)`, then they may or may not continue to refer to the same buffer.
 
-A [slice's capacity will determine](http://blog.golang.org/go-slices-usage-and-internals) whether or not `append()` will create a new buffer. In our trivial example, slice capacity is immediately apparent, but that won't necessarily be the case in more complex code. You might not know where your slices are coming from--they may arrive at your code as arbitrary function arguments, or they may be created based on user input or some other external state. You also can't predict a slice's capacity--it  can diverge from the length of the slice either explicitly (calling `make()` with a specific length and capacity) or implicitly (via `append()` and subslicing).
+A [slice's capacity will determine](http://blog.golang.org/go-slices-usage-and-internals) whether or not `append()` will create a new buffer. In our trivial example, slice capacity is immediately apparent, but that won't necessarily be the case in more complex code. You might not know where your slices are coming from--they may arrive at your code as arbitrary function arguments, or they may be created based on user input or some other external state. You also can't predict a slice's capacity--it  can diverge from the length of the slice either explicitly (calling `make()` with a specific length and capacity) or implicitly (via `append()` or re-slicing).
 
 <a href="https://www.flickr.com/photos/matilda89/6902196810" title="Sliced but whole together by matilda89, on Flickr"><img src="https://farm8.staticflickr.com/7238/6902196810_e80e426d33.jpg" width="500" height="332" alt="Sliced but whole together"></a>
 
@@ -59,7 +59,7 @@ Unless you write explicit logic that reads the capacity of a slice, it is not re
 
 The ambiguity here is bad. Direct assignment of slice variables, such as `b := a` in the previous examples, starts to seem like a code smell, and it's tempting to avoid it altogether. But there are other ways in which a slice can end up referencing the same buffer as another slice.
 
-For example, through subslicing:
+For example, through re-slicing:
 
 {% highlight go %}
 a := make([]int, 1, 2)
@@ -165,6 +165,6 @@ fmt.Println(join(make([]int, 1, 2), suffixes)) // [[0 1] [0 2 3]]
 fmt.Println(join(make([]int, 1, 3), suffixes)) // [[0 1] [0 2 3]] fixed!
 {% endhighlight %}
 
-I find the corrected version to be significantly uglier than the original, and not just ugly, but unpleasantly subtle, in a way that feels defensive rather than expressive. And yet when you get used to it, you kind of just get it: the Go slice design seems to be a best-of-evils compromise between high-level convenience (try doing a re-allocating append operation in pure C) and more low-level performance concerns (try doing memory-efficient subslicing on huge Ruby arrays).
+I find the corrected version to be significantly uglier than the original, and not just ugly, but unpleasantly subtle, in a way that feels defensive rather than expressive. When you get used to it, you just have to shrug: the Go slice design feels to be a best-of-evils compromise between high-level convenience (try doing a re-allocating append operation in pure C) and lower-level idioms (try using slices to modify the same buffer in Ruby).
 
 As far as list abstractions go, Go slices are pretty leaky, and are probably best thought of as a thin film of syntactic sugar over a memory buffer. In other words, you really should know what's going on internally before using them. Go's own documentation admits to as much, and the official Go blog's ["Go slices: usage and internals"](http://blog.golang.org/go-slices-usage-and-internals) ought to be considered required reading for anyone using the language.
