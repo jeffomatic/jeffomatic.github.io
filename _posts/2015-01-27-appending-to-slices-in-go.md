@@ -88,7 +88,7 @@ There are two bits of unpleasantness here, one small and one big. The small one 
 
 ```
 // Go
-b := append([]int{}, a)
+b := append([]int{}, a...)
 
 // JavaScript
 b = a.slice()
