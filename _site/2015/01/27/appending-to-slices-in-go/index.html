@@ -78,8 +78,10 @@
 <ol>
   <li>The code is virtually the same. Only the first line has changed.</li>
   <li>The content of the original slice is the same. Only its capacity has changed.</li>
-  <li>We have a different outcome: following the <code>append()</code>s, <code>a</code> and <code>b</code> continue to refer to the same underlying buffer.</li>
+  <li>We have a different outcome: following the calls to <code>append()</code>, <code>a</code> and <code>b</code> continue to refer to the same underlying buffer.</li>
 </ol>
+
+<p>In both examples, the assignment expression <code>b := a</code> creates a second <a href="http://golang.org/pkg/reflect/#SliceHeader">slice header</a>, one that happens to have the same buffer pointer, length, and capacity as the first. As long as neither <code>a</code> nor <code>b</code> is reassigned, they are effectively aliases of the same slice. However, if either or both are reassigned in an append expression such as <code>a = append(a, 1)</code>, then they may or may not continue to refer to the same buffer.</p>
 
 <p>A <a href="http://blog.golang.org/go-slices-usage-and-internals">slice’s capacity will determine</a> whether or not <code>append()</code> will create a new buffer. In our trivial example, slice capacity is immediately apparent, but that won’t necessarily be the case in more complex code. You might not know where your slices are coming from–they may arrive at your code as arbitrary function arguments, or they may be created based on user input or some other external state. You also can’t predict a slice’s capacity–it  can diverge from the length of the slice either explicitly (calling <code>make()</code> with a specific length and capacity) or implicitly (via <code>append()</code> and subslicing).</p>
 

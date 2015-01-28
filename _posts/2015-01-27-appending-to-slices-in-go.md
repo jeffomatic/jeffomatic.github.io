@@ -47,7 +47,9 @@ A few things to note here:
 
 1. The code is virtually the same. Only the first line has changed.
 2. The content of the original slice is the same. Only its capacity has changed.
-2. We have a different outcome: following the `append()`s, `a` and `b` continue to refer to the same underlying buffer.
+2. We have a different outcome: following the calls to `append()`, `a` and `b` continue to refer to the same underlying buffer.
+
+In both examples, the assignment expression `b := a` creates a second [slice header](http://golang.org/pkg/reflect/#SliceHeader), one that happens to have the same buffer pointer, length, and capacity as the first. As long as neither `a` nor `b` is reassigned, they are effectively aliases of the same slice. However, if either or both are reassigned in an append expression such as `a = append(a, 1)`, then they may or may not continue to refer to the same buffer.
 
 A [slice's capacity will determine](http://blog.golang.org/go-slices-usage-and-internals) whether or not `append()` will create a new buffer. In our trivial example, slice capacity is immediately apparent, but that won't necessarily be the case in more complex code. You might not know where your slices are coming from--they may arrive at your code as arbitrary function arguments, or they may be created based on user input or some other external state. You also can't predict a slice's capacity--it  can diverge from the length of the slice either explicitly (calling `make()` with a specific length and capacity) or implicitly (via `append()` and subslicing).
 
