@@ -101,6 +101,9 @@ b = list(a)
 # Ruby
 b = a.dup
 
+// Java
+Vector<int> b = (Vector<int>)a.clone();
+
 // C++
 std::vector<int> b = a;
 ```
