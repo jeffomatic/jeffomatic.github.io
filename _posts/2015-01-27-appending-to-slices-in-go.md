@@ -1,6 +1,8 @@
 ---
 layout: post
 title: Appending to slices in Go
+redirect_from:
+ - /2014/01/27/appending-to-slices-in-go/
 ---
 
 <a href="https://www.flickr.com/photos/biketourist/135979696" title="Sliced 77 Honda Wagon by John, on Flickr"><img src="https://farm1.staticflickr.com/46/135979696_b2322d43b9.jpg" width="500" height="375" alt="Sliced 77 Honda Wagon"></a>
