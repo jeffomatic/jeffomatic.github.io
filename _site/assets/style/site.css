@@ -6,7 +6,7 @@ html {
   font-size: 1.03em;
   line-height: 1.8em; }
 
-p code {
+p code, li code {
   font-size: 1.1em; }
 
 pre {

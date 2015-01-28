@@ -7,6 +7,21 @@
     <atom:link href="http://hoyvinglavin.com/feed.xml" rel="self" type="application/rss+xml" />
     
       <item>
+        <title>Appending to slices in Go</title>
+        
+          <dc:creator>Jeff Lee</dc:creator>
+        
+        
+          <description>&lt;p&gt;&lt;a href=&quot;https://www.flickr.com/photos/biketourist/135979696&quot; title=&quot;Sliced 77 Honda Wagon by John, on Flickr&quot;&gt;&lt;img src=&quot;https://farm1.staticflickr.com/46/135979696_b2322d43b9.jpg&quot; width=&quot;500&quot; height=&quot;375&quot; alt=&quot;Sliced 77 Honda Wagon&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Mon, 27 Jan 2014 00:00:00 -0800</pubDate>
+        <link>http://hoyvinglavin.com/2014/01/27/appending-to-slices-in-go/</link>
+        <guid isPermaLink="true">http://hoyvinglavin.com/2014/01/27/appending-to-slices-in-go/</guid>
+      </item>
+    
+      <item>
         <title>Accessing Rails helpers outside views</title>
         
           <dc:creator>Jeff Lee</dc:creator>
