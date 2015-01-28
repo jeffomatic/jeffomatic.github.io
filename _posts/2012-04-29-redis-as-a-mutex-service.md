@@ -1,6 +1,7 @@
 ---
 layout: post
 title: Redis as a mutex service
+description: How to use Redis for distributed mutual exclusion.
 ---
 
 <a href="https://www.flickr.com/photos/xserve/368758286" title="Lock by Lok Leung, on Flickr"><img src="https://farm1.staticflickr.com/115/368758286_e4dcb5ae53.jpg" width="500" height="334" alt="Lock"></a>

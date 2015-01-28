@@ -1,6 +1,7 @@
 ---
 layout: post
 title: Accessing Rails helpers outside views
+description: A quick hack to expose Rails view helpers to the rest of your code.
 ---
 
 <a href="https://www.flickr.com/photos/rg69olds/7876825078" title="fence by R G, on Flickr"><img src="https://farm9.staticflickr.com/8430/7876825078_3d298a8ea2.jpg" width="500" height="333" alt="fence"></a>

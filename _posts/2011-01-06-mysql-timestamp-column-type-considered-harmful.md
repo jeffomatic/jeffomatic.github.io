@@ -1,6 +1,7 @@
 ---
 layout: post
 title: MySQL timestamp column type considered harmful
+description: On one of MySQL's weirder column types, and why you shouldn't use it.
 ---
 
 <a href="https://www.flickr.com/photos/telstar/433029904" title="Time Selector by Todd Lappin, on Flickr"><img src="https://farm1.staticflickr.com/174/433029904_27dd44a95a.jpg" width="500" height="381" alt="Time Selector"></a>

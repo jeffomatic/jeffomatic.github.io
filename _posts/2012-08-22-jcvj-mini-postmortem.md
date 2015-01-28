@@ -1,6 +1,7 @@
 ---
 layout: post
 title: JCVJ mini-postmortem
+description: Notes from a game jam about Jean-Claude Van Damme.
 ---
 
 ![I knew Thailand very well, so I showed her my Thailand.](/assets/images/2012-08-22-jcvj-mini-postmortem-intro.jpg)

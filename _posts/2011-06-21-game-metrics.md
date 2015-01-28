@@ -1,6 +1,7 @@
 ---
 layout: post
 title: On the productive use of metrics in the development of gory vampire games
+description: How we added remote metrics tracking to a console video game.
 redirect_from:
   - /2011/06/21/on-the-productive-use-of-metrics-in-the-development-of/
 ---

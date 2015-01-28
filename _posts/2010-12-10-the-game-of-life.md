@@ -1,6 +1,7 @@
 ---
 layout: post
 title: The Game of Life
+description: An introduction and implementation of Conway's Game of Life.
 redirect_from:
   - /2010/11/24/the-game-of-life-2/
   - /2010/12/07/a-simple-implementation-of-life-part-1-2/

@@ -1,6 +1,7 @@
 ---
 layout: post
 title: Appending to slices in Go
+description: An overview of the subtleties of slices and append() in Go.
 redirect_from:
  - /2014/01/27/appending-to-slices-in-go/
 ---
