@@ -166,6 +166,6 @@ fmt.Println(join(make([]int, 1, 2), suffixes)) // [[0 1] [0 2 3]]
 fmt.Println(join(make([]int, 1, 3), suffixes)) // [[0 1] [0 2 3]] fixed!
 {% endhighlight %}
 
-I find the corrected version to be significantly uglier than the original, and not just ugly, but unpleasantly subtle, in a way that feels defensive rather than expressive. When you get used to it, you just have to shrug: the Go slice design feels to be a best-of-evils compromise between high-level convenience (try doing a re-allocating append operation in pure C) and lower-level idioms (try using slices to modify the same buffer in Ruby).
+I find the corrected version to be significantly uglier than the original, and not just ugly, but unpleasantly subtle, in a way that feels defensive rather than expressive. When you get used to it, you just have to shrug: the Go slice design seems like a best-of-evils compromise between high-level convenience (try doing a re-allocating append operation in pure C) and lower-level idioms (try using slices to modify the same buffer in Ruby).
 
 As far as list abstractions go, Go slices are pretty leaky, and are probably best thought of as a thin film of syntactic sugar over a memory buffer. In other words, you really should know what's going on internally before using them. Go's own documentation admits to as much, and the official Go blog's ["Go slices: usage and internals"](http://blog.golang.org/go-slices-usage-and-internals) ought to be considered required reading for anyone using the language.
