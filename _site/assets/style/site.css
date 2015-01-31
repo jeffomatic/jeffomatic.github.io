@@ -1,13 +1,17 @@
 @import url(http://fonts.googleapis.com/css?family=Lusitana:400,700);
+@import url(http://fonts.googleapis.com/css?family=Libre+Baskerville:400,700,400italic);
 html {
-  font-family: Lusitana, Georgia, serif;
+  font-family: "Libre Baskerville", Lusitana, Georgia, serif;
   background: white;
   color: #444;
-  font-size: 1.03em;
+  font-size: 0.85em;
   line-height: 1.8em; }
 
-p code, li code {
-  font-size: 1.1em; }
+code {
+  font-size: 1.3em; }
+
+pre code {
+  font-size: 1.25em; }
 
 pre {
   line-height: 1.3em; }
