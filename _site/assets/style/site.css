@@ -1,7 +1,6 @@
-@import url(http://fonts.googleapis.com/css?family=Lusitana:400,700);
 @import url(http://fonts.googleapis.com/css?family=Libre+Baskerville:400,700,400italic);
 html {
-  font-family: "Libre Baskerville", Lusitana, Georgia, serif;
+  font-family: "Libre Baskerville", Georgia, serif;
   background: white;
   color: #444;
   font-size: 0.85em;
